@@ -22,16 +22,26 @@ No separate Express server unless it becomes necessary (PRD §6).
 
 ## Commands
 
-<!-- Fill in once `npx create-next-app` has run for this project, e.g.:
 ```bash
 npm install
-npm run dev
-npm run typecheck
-npm run lint
-npm run test        # Vitest
-npm run test:e2e    # Playwright
+npm run dev            # start dev server
+npm run build            # production build
+npm run lint             # ESLint
+npm run typecheck         # tsc --noEmit
+npm run format            # Prettier — write
+npm run format:check       # Prettier — check only
 ```
--->
+
+`npm run test` (Vitest) and `npm run test:e2e` (Playwright) will be added starting
+Phase 2, once there's a data layer to test.
+
+## Next.js version note
+
+This project scaffolded on Next.js 16 / React 19, whose own generated `AGENTS.md`
+warned: params and `cookies()` from `next/headers` are async (`Promise`-returning) —
+confirmed against `node_modules/next/dist/docs`. If Next.js has been upgraded since
+this was written, re-check `node_modules/next/dist/docs` for further breaking changes
+before assuming App Router conventions from training data still hold.
 
 ## Project-specific rules (PRD §22)
 
