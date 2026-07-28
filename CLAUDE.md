@@ -2,7 +2,8 @@
 
 This is a monorepo workspace: every project lives under `projects/<project-name>/`,
 each with its own `CLAUDE.md`, PRD, and code. This root `CLAUDE.md` holds the
-conventions shared across all of them.
+conventions shared across all of them. (This repo also has an `AGENTS.md` with the
+same content for when you work from Codex CLI instead — keep the two in sync.)
 
 ## gstack
 
