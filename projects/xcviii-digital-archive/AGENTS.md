@@ -46,6 +46,23 @@ does an optimistic redirect — never the real check, per the Next.js docs'
 own warning that Proxy "should not be used as a full session management or
 authorization solution." RLS's `is_admin()` is the backstop under both.
 
+## Data-access pattern (Phase 4+)
+
+Every table's admin CRUD follows the same shape, set by collections
+(`src/lib/data/collections.ts`, `src/lib/actions/collections.ts`) — reuse it for
+pieces (Phase 5) rather than inventing a new one:
+
+- `src/lib/validation/<table>.ts` — Zod schema matching the DB constraints.
+- `src/lib/data/<table>.ts` — read functions, each calling `requireAdmin()`
+  first, plain async functions (not Server Actions).
+- `src/lib/actions/<table>.ts` — `"use server"` mutations, each calling
+  `requireAdmin()` first; unique-constraint violations (Postgres `23505`)
+  surface as a field-level form error, not a crash.
+- Supabase types come from `src/lib/supabase/database.types.ts` (regenerate
+  after schema changes — see README's "Database migrations" section) — avoid
+  manual type annotations/casts on query results; let the generated types flow
+  through instead.
+
 ## Next.js version note
 
 This project scaffolded on Next.js 16 / React 19, whose own generated `AGENTS.md`

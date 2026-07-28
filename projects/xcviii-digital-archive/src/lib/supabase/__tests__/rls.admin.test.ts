@@ -2,6 +2,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 
+import type { Database } from "@/lib/supabase/database.types";
+
 /**
  * Phase 3: the admin-authenticated RLS behavior deferred from Phase 2's plan,
  * now that a real sign-in path (supabase.auth.signInWithPassword) exists.
@@ -18,7 +20,11 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const clientOptions = { realtime: { transport: WebSocket as never } };
-const admin = createSupabaseClient(url, serviceRoleKey, clientOptions);
+const admin = createSupabaseClient<Database>(
+  url,
+  serviceRoleKey,
+  clientOptions,
+);
 
 let throwawayUserId: string;
 let throwawayEmail: string;
@@ -99,7 +105,7 @@ afterAll(async () => {
 
 describe("wrong credentials", () => {
   it("signInWithPassword rejects an unknown email/password combo", async () => {
-    const anon = createSupabaseClient(url, anonKey, clientOptions);
+    const anon = createSupabaseClient<Database>(url, anonKey, clientOptions);
     const { error } = await anon.auth.signInWithPassword({
       email: `nobody-${crypto.randomUUID()}@example.com`,
       password: "definitely-wrong",
@@ -110,7 +116,7 @@ describe("wrong credentials", () => {
 
 describe("authenticated admin RLS", () => {
   it("can sign in and read a draft collection", async () => {
-    const asAdmin = createSupabaseClient(url, anonKey, clientOptions);
+    const asAdmin = createSupabaseClient<Database>(url, anonKey, clientOptions);
     const { error: signInError } = await asAdmin.auth.signInWithPassword({
       email: throwawayEmail,
       password: throwawayPassword,
@@ -125,7 +131,7 @@ describe("authenticated admin RLS", () => {
   });
 
   it("can read a draft piece", async () => {
-    const asAdmin = createSupabaseClient(url, anonKey, clientOptions);
+    const asAdmin = createSupabaseClient<Database>(url, anonKey, clientOptions);
     await asAdmin.auth.signInWithPassword({
       email: throwawayEmail,
       password: throwawayPassword,
@@ -139,7 +145,7 @@ describe("authenticated admin RLS", () => {
   });
 
   it("can insert a new collection", async () => {
-    const asAdmin = createSupabaseClient(url, anonKey, clientOptions);
+    const asAdmin = createSupabaseClient<Database>(url, anonKey, clientOptions);
     await asAdmin.auth.signInWithPassword({
       email: throwawayEmail,
       password: throwawayPassword,
@@ -154,7 +160,7 @@ describe("authenticated admin RLS", () => {
   });
 
   it("can update the draft collection", async () => {
-    const asAdmin = createSupabaseClient(url, anonKey, clientOptions);
+    const asAdmin = createSupabaseClient<Database>(url, anonKey, clientOptions);
     await asAdmin.auth.signInWithPassword({
       email: throwawayEmail,
       password: throwawayPassword,

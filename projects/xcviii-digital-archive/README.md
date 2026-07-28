@@ -7,9 +7,10 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-3 (project setup, database + RLS, authentication). Admin
-login/logout and route protection are live; no real collection/piece data yet —
-routes below still render placeholder content once signed in.
+**Status:** Phases 1-4 (project setup, database + RLS, authentication, collection
+management). Admins can create, edit, publish/unpublish, and archive collections.
+Pieces, the public archive, NFC workflow, and scan tracking are still ahead —
+those routes render placeholder content.
 
 ## Technical stack
 
@@ -73,6 +74,17 @@ supabase migration list                            # confirm local/remote match
 Add a new migration with `supabase migration new <name>`, then `supabase db push`
 again.
 
+After any schema change, regenerate the typed client so `src/lib/supabase/
+database.types.ts` matches reality:
+
+```bash
+supabase gen types typescript --linked > src/lib/supabase/database.types.ts
+```
+
+Both `createClient()` factories (`src/lib/supabase/client.ts` and `server.ts`)
+are typed with this file — a stale one shows up as type errors on `.from(...)`
+calls, not silent bugs.
+
 ## Seed data
 
 Supabase Auth owns identities — this app never creates a login for you directly.
@@ -128,10 +140,10 @@ requires reprogramming the tag.
 
 ## Known limitations
 
-- Through Phase 3 only: schema, RLS, and auth exist, but no real collection/piece
-  data yet. `/admin/*` routes require sign-in and render placeholder text once
-  authenticated; public `/pieces/[slug]` and `/collections/[slug]` are still
-  static placeholders.
+- Through Phase 4: schema, RLS, auth, and collection management exist. Pieces
+  (Phase 5) don't exist yet, so collection piece counts are always 0 and
+  `/admin/pieces*` still render placeholder text. Public `/pieces/[slug]` and
+  `/collections/[slug]` are still static placeholders.
 - Ordinary NFC tags confirm the tag was programmed with the correct URL but do not
   provide strong counterfeit protection (basic NFC URLs can be copied) — the public
   page is labeled a "Registered Piece" / "XCVIII Studio Record," not proof of

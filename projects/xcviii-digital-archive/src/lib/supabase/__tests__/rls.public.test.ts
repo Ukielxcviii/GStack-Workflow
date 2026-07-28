@@ -2,6 +2,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 
+import type { Database } from "@/lib/supabase/database.types";
+
 // Node 20 has no native WebSocket; supabase-js always constructs a realtime
 // client even though these tests never call .channel(). Polyfill via `ws` so
 // client construction doesn't throw.
@@ -22,8 +24,12 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const clientOptions = { realtime: { transport: WebSocket as never } };
-const admin = createSupabaseClient(url, serviceRoleKey, clientOptions);
-const anon = createSupabaseClient(url, anonKey, clientOptions);
+const admin = createSupabaseClient<Database>(
+  url,
+  serviceRoleKey,
+  clientOptions,
+);
+const anon = createSupabaseClient<Database>(url, anonKey, clientOptions);
 
 let publishedCollectionId: string;
 let draftCollectionId: string;
