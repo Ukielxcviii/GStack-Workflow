@@ -7,8 +7,9 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phase 1 (project setup) only. No database, auth, or real data yet —
-routes below render placeholder content.
+**Status:** Phases 1-2 (project setup, database + RLS). Schema and security
+policies are live; no auth/login flow or real content yet — routes below still
+render placeholder content.
 
 ## Technical stack
 
@@ -31,36 +32,64 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Required environment variables
 
-| Variable                        | Where to find it                                                  |
-| ------------------------------- | ----------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase dashboard → Project Settings → API → Project URL         |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API → `anon` `public` key |
+| Variable                        | Where to find it                                                    |
+| ------------------------------- | ------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase dashboard → Project Settings → API → Project URL           |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API → `anon` `public` key   |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Supabase dashboard → Project Settings → API → `service_role` secret |
 
-Validated at startup by [`src/lib/env.ts`](src/lib/env.ts) — the app throws a clear
-error immediately if either is missing or malformed, rather than failing later with
-an opaque Supabase client error.
+The first two are validated at startup by [`src/lib/env.ts`](src/lib/env.ts) — the
+app throws a clear error immediately if either is missing or malformed, rather
+than failing later with an opaque Supabase client error.
 
-There is no service-role key in this app. Admin mutations run under the
-authenticated user's own Supabase client so Row Level Security is always enforced
-(defense-in-depth, not a bypass) — see the design doc's DAL pattern.
+`SUPABASE_SERVICE_ROLE_KEY` is **test-only** — used solely by the RLS test suite
+to seed/tear down fixtures (bypassing RLS on purpose, to set up data anon can't
+insert itself). It is never read by `src/lib/env.ts` and never reaches the app
+runtime or the browser. The app itself has no service-role key: admin mutations
+run under the authenticated user's own Supabase client so Row Level Security is
+always enforced (defense-in-depth, not a bypass) — see the design doc's DAL
+pattern.
 
 ## Supabase setup
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. In the dashboard, go to Project Settings → API and copy the Project URL and the
    `anon` `public` key into `.env.local`.
-3. Database schema, RLS policies, and a seeded dev admin arrive in Phase 2 — nothing
-   to set up on the database side yet.
+3. Run the migrations in `supabase/migrations/` against your project (see
+   "Database migrations" below) to create the schema and RLS policies.
 
 ## Database migrations
 
-TODO — Phase 2 (Database and security) adds the schema, RLS policies, and migration
-instructions here.
+Schema, constraints, and RLS policies live in `supabase/migrations/`, applied via
+the Supabase CLI directly against the linked hosted project (no local
+Postgres/Docker needed):
+
+```bash
+supabase link --project-ref <your-project-ref>   # one-time, prompts for DB password
+supabase db push                                   # applies any new migrations
+supabase migration list                            # confirm local/remote match
+```
+
+Add a new migration with `supabase migration new <name>`, then `supabase db push`
+again.
 
 ## Seed data
 
-TODO — Phase 2 seeds a development admin; PRD §21 seed data (collection + pieces)
-lands with Phase 4/5.
+Supabase Auth owns identities — this app never creates a login for you directly.
+To get a dev admin:
+
+1. Supabase dashboard → Authentication → Users → Add user (email + password of
+   your choosing, check "Auto Confirm User").
+2. Add a migration that promotes that email to admin, e.g.:
+   ```sql
+   insert into public.profiles (id, role)
+   select id, 'admin' from auth.users where email = 'you@example.com'
+   on conflict (id) do update set role = 'admin';
+   ```
+3. `supabase db push`.
+
+PRD §21's sample collection ("First Light") + piece ("Pearl Halo — Navy") are
+seeded once the admin CRUD UI exists (Phase 4/5), not at the schema stage.
 
 ## Development commands
 
@@ -76,9 +105,15 @@ npm run format:check       # Prettier — check only
 
 ## Testing commands
 
-TODO — Vitest/RTL unit tests are written per-phase starting Phase 2 (per the eng
-review decision to not defer testing to Phase 10); Playwright E2E is added once the
-UI is stable (Phase 10). `npm run test` / `npm run test:e2e` will be added then.
+```bash
+npm run test    # Vitest — currently just the anon/public RLS integration suite
+```
+
+Tests run against the real linked dev Supabase project (not a mock), using
+`SUPABASE_SERVICE_ROLE_KEY` from `.env.local` (test-only, never used by the app
+itself) to seed/tear down fixture rows around each run. Admin-authenticated RLS
+tests land in Phase 3, once there's a login flow to sign in with. Playwright E2E
+is added once the UI is stable (Phase 10).
 
 ## Deployment
 

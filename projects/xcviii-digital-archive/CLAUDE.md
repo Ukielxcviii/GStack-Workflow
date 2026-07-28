@@ -30,10 +30,13 @@ npm run lint             # ESLint
 npm run typecheck         # tsc --noEmit
 npm run format            # Prettier — write
 npm run format:check       # Prettier — check only
+npm run test              # Vitest
 ```
 
-`npm run test` (Vitest) and `npm run test:e2e` (Playwright) will be added starting
-Phase 2, once there's a data layer to test.
+`npm run test` currently covers anon/public RLS only (`supabase/migrations/` +
+`src/lib/supabase/__tests__/`), run against the real linked dev project. Admin-
+authenticated RLS tests land in Phase 3 alongside the login flow. `npm run
+test:e2e` (Playwright) waits for a stable UI (Phase 10).
 
 ## Next.js version note
 
