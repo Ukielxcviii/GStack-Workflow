@@ -33,10 +33,18 @@ npm run format:check       # Prettier — check only
 npm run test              # Vitest
 ```
 
-`npm run test` currently covers anon/public RLS only (`supabase/migrations/` +
-`src/lib/supabase/__tests__/`), run against the real linked dev project. Admin-
-authenticated RLS tests land in Phase 3 alongside the login flow. `npm run
-test:e2e` (Playwright) waits for a stable UI (Phase 10).
+`npm run test` covers anon/public + admin-authenticated RLS (`src/lib/supabase/
+__tests__/`) and the login Zod schema (`src/lib/validation/__tests__/`), run
+against the real linked dev project. `npm run test:e2e` (Playwright — the full
+signed-in browser flow) waits for a stable UI (Phase 10).
+
+## Auth pattern (Phase 3)
+
+DAL, not middleware-only: every admin page/action calls `requireAdmin()`
+(`src/lib/dal.ts`) first. `src/proxy.ts` (Next.js 16's renamed Middleware) only
+does an optimistic redirect — never the real check, per the Next.js docs'
+own warning that Proxy "should not be used as a full session management or
+authorization solution." RLS's `is_admin()` is the backstop under both.
 
 ## Next.js version note
 

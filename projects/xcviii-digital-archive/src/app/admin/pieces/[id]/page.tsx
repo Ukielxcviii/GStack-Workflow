@@ -1,8 +1,11 @@
+import { requireAdmin } from "@/lib/dal";
+
 export default async function AdminPieceDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdmin();
   const { id } = await params;
 
   return (

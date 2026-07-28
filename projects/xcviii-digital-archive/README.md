@@ -7,9 +7,9 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-2 (project setup, database + RLS). Schema and security
-policies are live; no auth/login flow or real content yet — routes below still
-render placeholder content.
+**Status:** Phases 1-3 (project setup, database + RLS, authentication). Admin
+login/logout and route protection are live; no real collection/piece data yet —
+routes below still render placeholder content once signed in.
 
 ## Technical stack
 
@@ -106,14 +106,14 @@ npm run format:check       # Prettier — check only
 ## Testing commands
 
 ```bash
-npm run test    # Vitest — currently just the anon/public RLS integration suite
+npm run test    # Vitest — RLS integration suite + login schema unit tests
 ```
 
 Tests run against the real linked dev Supabase project (not a mock), using
 `SUPABASE_SERVICE_ROLE_KEY` from `.env.local` (test-only, never used by the app
-itself) to seed/tear down fixture rows around each run. Admin-authenticated RLS
-tests land in Phase 3, once there's a login flow to sign in with. Playwright E2E
-is added once the UI is stable (Phase 10).
+itself) to seed/tear down fixture rows and throwaway admin users around each run
+— no real credentials needed, nothing persists. Playwright E2E (the full signed-
+in browser flow) is added once the UI is stable (Phase 10).
 
 ## Deployment
 
@@ -128,8 +128,10 @@ requires reprogramming the tag.
 
 ## Known limitations
 
-- Phase 1 only: no database, no auth, no real data. All routes above render static
-  placeholder text.
+- Through Phase 3 only: schema, RLS, and auth exist, but no real collection/piece
+  data yet. `/admin/*` routes require sign-in and render placeholder text once
+  authenticated; public `/pieces/[slug]` and `/collections/[slug]` are still
+  static placeholders.
 - Ordinary NFC tags confirm the tag was programmed with the correct URL but do not
   provide strong counterfeit protection (basic NFC URLs can be copied) — the public
   page is labeled a "Registered Piece" / "XCVIII Studio Record," not proof of

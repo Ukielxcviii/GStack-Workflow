@@ -1,8 +1,16 @@
-export default function AdminDashboardPage() {
+import { logout } from "@/lib/actions/auth";
+import { requireAdmin } from "@/lib/dal";
+
+export default async function AdminDashboardPage() {
+  const { user } = await requireAdmin();
+
   return (
     <main>
       <h1>Admin dashboard</h1>
-      <p>Placeholder — no auth yet (Phase 3).</p>
+      <p>Signed in as {user.email}.</p>
+      <form action={logout}>
+        <button type="submit">Log out</button>
+      </form>
     </main>
   );
 }

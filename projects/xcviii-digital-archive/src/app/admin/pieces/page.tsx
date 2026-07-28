@@ -1,4 +1,8 @@
-export default function AdminPiecesPage() {
+import { requireAdmin } from "@/lib/dal";
+
+export default async function AdminPiecesPage() {
+  await requireAdmin();
+
   return (
     <main>
       <h1>Pieces</h1>

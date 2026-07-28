@@ -1,4 +1,8 @@
-export default function NewCollectionPage() {
+import { requireAdmin } from "@/lib/dal";
+
+export default async function NewCollectionPage() {
+  await requireAdmin();
+
   return (
     <main>
       <h1>New collection</h1>

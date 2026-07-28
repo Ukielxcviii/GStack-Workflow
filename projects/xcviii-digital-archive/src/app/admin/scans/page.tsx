@@ -1,4 +1,8 @@
-export default function AdminScansPage() {
+import { requireAdmin } from "@/lib/dal";
+
+export default async function AdminScansPage() {
+  await requireAdmin();
+
   return (
     <main>
       <h1>Scan activity</h1>
