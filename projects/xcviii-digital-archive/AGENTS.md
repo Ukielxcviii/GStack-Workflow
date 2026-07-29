@@ -34,9 +34,10 @@ npm run test              # Vitest
 ```
 
 `npm run test` covers anon/public + admin-authenticated RLS (`src/lib/supabase/
-__tests__/`, `src/lib/data/__tests__/`), the login/collection/piece Zod schemas
-(`src/lib/validation/__tests__/`), and piece ID/slug generation
-(`src/lib/pieces/__tests__/`), run against the real linked dev project.
+__tests__/`, `src/lib/data/__tests__/`), the login/collection/piece/scan Zod
+schemas (`src/lib/validation/__tests__/`), piece ID/slug generation
+(`src/lib/pieces/__tests__/`), and scan helpers (`src/lib/scans/__tests__/`),
+run against the real linked dev project.
 `npm run test:e2e` (Playwright — the full signed-in browser flow) waits for a
 stable UI (Phase 10).
 
@@ -121,6 +122,35 @@ correct in every environment without adding required config. Only callable
 from a Server Component/Route Handler (needs `next/headers`). This is what the
 admin piece detail page's NFC section shows and the Copy URL button copies —
 the exact string an NFC tag should be programmed with.
+
+## Scan tracking (Phase 8+)
+
+`POST /api/scan` (`src/app/api/scan/route.ts`) is a route handler, not a
+Server Action — it's called by `ScanBeacon.tsx`'s fire-and-forget client-side
+`fetch()`, mounted only in the public piece page's _published_ branch. It
+always responds `204` regardless of outcome and never trusts client-supplied
+fields except `slug` and `referrer` (see below) — `device_category`,
+`country_code`, and the `anonymous_identifier` hash are all derived
+server-side from the request. A scan is silently skipped (not recorded, still
+`204`) for any slug that isn't currently `publication_status = 'published'` —
+matching the public page's own gate, not the wider RLS carve-out that lets
+previously-published pieces render "unavailable."
+
+**`referrer` is the one client-supplied field, and that's deliberate**: the
+request's own `Referer` header would just be the piece page's own URL (the
+fetch originates from it), which is useless. `ScanBeacon.tsx` sends
+`document.referrer` instead — the actual page the visitor navigated from —
+which the route handler stores as-is (capped at 2048 chars, never used in a
+security decision, same trust model as any client-side analytics beacon).
+Discovered by testing this in a real browser, not by inspection — a request
+header approach silently produced the wrong data.
+
+`src/lib/data/scans.ts` follows the admin `requireAdmin()`-gated pattern like
+every other `src/lib/data/` file (unlike `public.ts`). Its aggregation logic
+(count queries with date cutoffs) is proven correct in
+`src/lib/data/__tests__/scans.integration.test.ts` against the real DB using
+the service-role client directly — the functions themselves can't run in
+Vitest (same `requireAdmin()`/`next/headers` limitation as Server Actions).
 
 ## Next.js version note
 

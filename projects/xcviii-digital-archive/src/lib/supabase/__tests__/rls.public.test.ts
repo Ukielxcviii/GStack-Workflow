@@ -250,6 +250,21 @@ describe("scan_events RLS", () => {
     expect(error).toBeNull();
   });
 
+  // Phase 8: proves the exact row shape POST /api/scan writes
+  // (src/app/api/scan/route.ts) is accepted by RLS, not just a bare
+  // piece_id.
+  it("anon can insert a scan event with the full field set the scan endpoint writes", async () => {
+    const { error } = await anon.from("scan_events").insert({
+      piece_id: publishedPieceId,
+      referrer: "https://example.com",
+      user_agent: "Mozilla/5.0 (test)",
+      device_category: "mobile",
+      country_code: "US",
+      anonymous_identifier: "0123456789abcdef",
+    });
+    expect(error).toBeNull();
+  });
+
   it("anon cannot read scan events", async () => {
     const { data } = await anon
       .from("scan_events")

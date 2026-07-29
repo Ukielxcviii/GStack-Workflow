@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { CopyUrlButton } from "@/app/admin/pieces/[id]/CopyUrlButton";
 import { getPieceById } from "@/lib/data/pieces";
+import { getPieceScanSummary } from "@/lib/data/scans";
 import { getPublicPieceUrl } from "@/lib/site";
 
 export default async function AdminPieceDetailPage({
@@ -17,7 +18,10 @@ export default async function AdminPieceDetailPage({
     notFound();
   }
 
-  const publicUrl = await getPublicPieceUrl(piece.slug);
+  const [publicUrl, scanSummary] = await Promise.all([
+    getPublicPieceUrl(piece.slug),
+    getPieceScanSummary(piece.id),
+  ]);
 
   return (
     <main>
@@ -109,7 +113,19 @@ export default async function AdminPieceDetailPage({
       </p>
 
       <h2>Scans</h2>
-      <p>Scan summary arrives in Phase 8.</p>
+      <dl>
+        <dt>Total scans</dt>
+        <dd>{scanSummary.total}</dd>
+
+        <dt>Scans in last 7 days</dt>
+        <dd>{scanSummary.last7Days}</dd>
+
+        <dt>Scans in last 30 days</dt>
+        <dd>{scanSummary.last30Days}</dd>
+
+        <dt>Most recent scan</dt>
+        <dd>{scanSummary.mostRecentScanAt ?? "no scans yet"}</dd>
+      </dl>
     </main>
   );
 }

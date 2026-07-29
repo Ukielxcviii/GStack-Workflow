@@ -2,12 +2,14 @@ import { logout } from "@/lib/actions/auth";
 import { requireAdmin } from "@/lib/dal";
 import { getCollections } from "@/lib/data/collections";
 import { getPieceCounts } from "@/lib/data/pieces";
+import { getScanTotals } from "@/lib/data/scans";
 
 export default async function AdminDashboardPage() {
   const { user } = await requireAdmin();
-  const [collections, pieceCounts] = await Promise.all([
+  const [collections, pieceCounts, scanTotals] = await Promise.all([
     getCollections(),
     getPieceCounts(),
+    getScanTotals(),
   ]);
 
   return (
@@ -20,8 +22,9 @@ export default async function AdminDashboardPage() {
         <li>Total pieces: {pieceCounts.total}</li>
         <li>Published pieces: {pieceCounts.published}</li>
         <li>Draft pieces: {pieceCounts.draft}</li>
+        <li>Total scans: {scanTotals.total}</li>
+        <li>Scans in last 30 days: {scanTotals.last30Days}</li>
       </ul>
-      <p>Scan counts arrive with Phase 8, once that data exists.</p>
 
       <form action={logout}>
         <button type="submit">Log out</button>

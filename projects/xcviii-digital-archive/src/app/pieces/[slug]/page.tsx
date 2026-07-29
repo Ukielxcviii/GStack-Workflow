@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { ScanBeacon } from "@/app/pieces/[slug]/ScanBeacon";
 import { getPublicPieceBySlug } from "@/lib/data/public";
 
 function titleCase(value: string) {
@@ -64,6 +65,8 @@ export default async function PiecePage({
 
   return (
     <main>
+      <ScanBeacon slug={slug} />
+
       <h1>XCVIII Studio</h1>
 
       <section>

@@ -7,14 +7,16 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-7 (project setup, database + RLS, authentication, collection
-and piece management, public archive, NFC workflow). Admins can create, edit,
-publish/unpublish, and archive both collections and pieces, with generated
-permanent piece IDs/slugs and search/filtering. `/pieces/[slug]` and
+**Status:** Phases 1-8 (project setup, database + RLS, authentication, collection
+and piece management, public archive, NFC workflow, scan tracking). Admins can
+create, edit, publish/unpublish, and archive both collections and pieces, with
+generated permanent piece IDs/slugs and search/filtering. `/pieces/[slug]` and
 `/collections/[slug]` are real, unauthenticated public pages backed by RLS. The
 admin piece detail page shows the piece's permanent public URL with a copy
-button — that's the exact string to write to its NFC tag. Scan tracking is
-still ahead.
+button — that's the exact string to write to its NFC tag. Every visit to a
+published piece's public page records a scan event; admins see totals and
+recent activity on the dashboard, the piece detail screen, and `/admin/scans`.
+Image uploads and deployment are still ahead.
 
 ## Technical stack
 
@@ -151,10 +153,21 @@ on the same admin page as each physical tag is programmed and tested.
 
 ## Known limitations
 
-- Through Phase 7: schema, RLS, auth, collection + piece management, the
-  public archive, and the NFC URL section all exist. Scan summary on the piece
-  detail screen is pending (Phase 8); the public piece page does not yet
-  record a scan/page-view event (Phase 8).
+- Through Phase 8: schema, RLS, auth, collection + piece management, the
+  public archive, the NFC URL section, and scan tracking all exist. Image
+  uploads (Supabase Storage) and deployment are pending (Phases 9-10).
+- Scan tracking has no active deduplication or rate-limiting — each page load
+  records a scan event (PRD §8.10 explicitly doesn't require exact unique-user
+  measurement). The stored `anonymous_identifier` (a daily-rotating hash, not
+  a raw IP) exists so a future feature could dedupe against it, but nothing
+  does yet. React StrictMode's dev-only double-effect means local development
+  records two scan events per page load instead of one — harmless, doesn't
+  happen in production.
+- A scan's `referrer` reflects `document.referrer`, which browsers only set on
+  a real cross-site navigation (an NFC tap, an external link click) — client-
+  side navigation between pages within this app (e.g. `<Link>`) never sets it,
+  so it's frequently null even for genuine visits. This matches PRD §8.10's
+  "referrer, when available" wording.
 - Once a piece has ever been published, its slug stays readable to the public
   even after being unpublished or archived — the RLS policy admits any piece
   where `publication_status = 'published' OR first_published_at is not null`.
