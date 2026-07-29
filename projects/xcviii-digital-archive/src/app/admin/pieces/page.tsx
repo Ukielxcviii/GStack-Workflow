@@ -87,60 +87,68 @@ export default async function AdminPiecesPage({
       {pieces.length === 0 ? (
         <p>No pieces match.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Piece ID</th>
-              <th>Name</th>
-              <th>Collection</th>
-              <th>Edition</th>
-              <th>Piece status</th>
-              <th>Publication status</th>
-              <th>Authenticity</th>
-              <th>Total scans</th>
-              <th>Last updated</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pieces.map((piece) => (
-              <tr key={piece.id}>
-                <td>{piece.piece_id}</td>
-                <td>
-                  <Link href={`/admin/pieces/${piece.id}`}>{piece.name}</Link>
-                </td>
-                <td>{piece.collections?.name ?? "—"}</td>
-                <td>
-                  {piece.edition_number} of {piece.edition_total}
-                </td>
-                <td>{piece.piece_status}</td>
-                <td>{piece.publication_status}</td>
-                <td>{piece.authenticity_status}</td>
-                <td>{piece.scanCount}</td>
-                <td>{new Date(piece.updated_at).toLocaleDateString()}</td>
-                <td>
-                  {piece.publication_status === "published" ? (
-                    <form action={unpublishPiece} style={{ display: "inline" }}>
-                      <input type="hidden" name="id" value={piece.id} />
-                      <button type="submit">Unpublish</button>
-                    </form>
-                  ) : (
-                    <form action={publishPiece} style={{ display: "inline" }}>
-                      <input type="hidden" name="id" value={piece.id} />
-                      <button type="submit">Publish</button>
-                    </form>
-                  )}{" "}
-                  {piece.publication_status !== "archived" && (
-                    <form action={archivePiece} style={{ display: "inline" }}>
-                      <input type="hidden" name="id" value={piece.id} />
-                      <button type="submit">Archive</button>
-                    </form>
-                  )}
-                </td>
+        // Wide table, narrow phones (PRD §16 "test common phone screen
+        // sizes") — scope the horizontal scroll to the table itself instead
+        // of letting it blow out the whole page.
+        <div className="overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Piece ID</th>
+                <th>Name</th>
+                <th>Collection</th>
+                <th>Edition</th>
+                <th>Piece status</th>
+                <th>Publication status</th>
+                <th>Authenticity</th>
+                <th>Total scans</th>
+                <th>Last updated</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {pieces.map((piece) => (
+                <tr key={piece.id}>
+                  <td>{piece.piece_id}</td>
+                  <td>
+                    <Link href={`/admin/pieces/${piece.id}`}>{piece.name}</Link>
+                  </td>
+                  <td>{piece.collections?.name ?? "—"}</td>
+                  <td>
+                    {piece.edition_number} of {piece.edition_total}
+                  </td>
+                  <td>{piece.piece_status}</td>
+                  <td>{piece.publication_status}</td>
+                  <td>{piece.authenticity_status}</td>
+                  <td>{piece.scanCount}</td>
+                  <td>{new Date(piece.updated_at).toLocaleDateString()}</td>
+                  <td>
+                    {piece.publication_status === "published" ? (
+                      <form
+                        action={unpublishPiece}
+                        style={{ display: "inline" }}
+                      >
+                        <input type="hidden" name="id" value={piece.id} />
+                        <button type="submit">Unpublish</button>
+                      </form>
+                    ) : (
+                      <form action={publishPiece} style={{ display: "inline" }}>
+                        <input type="hidden" name="id" value={piece.id} />
+                        <button type="submit">Publish</button>
+                      </form>
+                    )}{" "}
+                    {piece.publication_status !== "archived" && (
+                      <form action={archivePiece} style={{ display: "inline" }}>
+                        <input type="hidden" name="id" value={piece.id} />
+                        <button type="submit">Archive</button>
+                      </form>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </main>
   );

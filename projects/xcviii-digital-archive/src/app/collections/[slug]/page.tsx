@@ -70,6 +70,10 @@ export default async function CollectionPage({
           ))}
         </ul>
       )}
+
+      <p>
+        <Link href="/privacy">Privacy</Link>
+      </p>
     </main>
   );
 }

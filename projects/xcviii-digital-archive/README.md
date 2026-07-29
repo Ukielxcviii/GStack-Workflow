@@ -7,17 +7,22 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-9 (project setup, database + RLS, authentication, collection
-and piece management, public archive, NFC workflow, scan tracking, images). Admins can
-create, edit, publish/unpublish, and archive both collections and pieces, with
-generated permanent piece IDs/slugs and search/filtering. `/pieces/[slug]` and
+**Status:** Phases 1-10, all complete — project setup, database + RLS,
+authentication, collection and piece management, public archive, NFC workflow,
+scan tracking, images, and testing/deployment. Admins can create, edit,
+publish/unpublish, and archive both collections and pieces, with generated
+permanent piece IDs/slugs and search/filtering. `/pieces/[slug]` and
 `/collections/[slug]` are real, unauthenticated public pages backed by RLS. The
 admin piece detail page shows the piece's permanent public URL with a copy
 button — that's the exact string to write to its NFC tag. Every visit to a
 published piece's public page records a scan event; admins see totals and
 recent activity on the dashboard, the piece detail screen, and `/admin/scans`.
 Admins can upload a piece's main image and a collection's cover image
-(Supabase Storage); both render on the public pages. Deployment is still ahead.
+(Supabase Storage); both render on the public pages. A Playwright E2E suite
+covers PRD §19's four required flows, and the app is deployed to Vercel (see
+"Deployment" below). The only thing left is a manual, physical step no web
+app can do on its own: writing a piece's URL to a real NFC tag and testing it
+on a phone (see the checklist under "Deployment").
 
 ## Technical stack
 
@@ -126,19 +131,100 @@ npm run format:check       # Prettier — check only
 ## Testing commands
 
 ```bash
-npm run test    # Vitest — RLS integration suite + login schema unit tests
+npm run test       # Vitest — RLS integration suite + schema unit tests
+npm run test:e2e   # Playwright — PRD §19's 4 required E2E flows
 ```
 
-Tests run against the real linked dev Supabase project (not a mock), using
+Both run against the real linked dev Supabase project (not a mock), using
 `SUPABASE_SERVICE_ROLE_KEY` from `.env.local` (test-only, never used by the app
 itself) to seed/tear down fixture rows and throwaway admin users around each run
-— no real credentials needed, nothing persists. Playwright E2E (the full signed-
-in browser flow) is added once the UI is stable (Phase 10).
+— no real credentials needed, nothing persists.
+
+`test:e2e` (Phase 10) needs Playwright's browsers installed once per machine:
+`npx playwright install chromium webkit`. `e2e/global-setup.ts` creates one
+throwaway admin and writes its credentials to `e2e/.auth/admin.json`
+(gitignored); every spec signs in through the real login form with them.
+`e2e/global-teardown.ts` deletes it again, along with any `collection_code`
+starting with `E2E` and — importantly — any `scan_events` recorded against
+their pieces first: unlike the Vitest fixtures, these specs actually visit
+public piece pages, which fires `ScanBeacon` for real, so pieces must be
+cleaned up in `scan_events` → `pieces` → `collections` order or the delete
+hits `scan_events_piece_id_fkey`. (This exact ordering bug also explains why
+an earlier Phase 9 manual-verification piece was found still lingering in the
+database well after being reported cleaned up — its cleanup script deleted in
+the wrong order, hit the same FK constraint, and never checked the delete
+call's error. Lesson: any fixture cleanup for a _published_ piece must delete
+`scan_events` first and must check delete errors, not just log and move on.)
+
+## Production readiness (Phase 10, PRD §10/§20)
+
+Production reuses the same Supabase project as development — this is a
+solo/v1 project with one real administrator, so a separate production
+project would just be more accounts and migrations to keep in sync for no
+real isolation benefit. Confirmed against every migration in
+`supabase/migrations/` (also re-proven by `npm run test`'s RLS suite,
+including the Phase 9 storage-bucket tests, run directly against this
+project):
+
+- Public (anon) reads: published collections, published-or-
+  previously-published pieces only (see "Known limitations" below for why
+  that's broader than "published, not archived"), and the `images` storage
+  bucket's public URL. No policy grants anon SELECT on `profiles` or
+  unrestricted SELECT on `scan_events` — the only public access to
+  `scan_events` is `INSERT`.
+- Public (anon) writes: `INSERT` only on `scan_events` (via `/api/scan`, and
+  only for currently-published pieces — enforced in the route handler, not
+  just RLS), and none anywhere else. Confirmed live: an anonymous `INSERT`
+  against `collections` is rejected (see the `test:e2e` "Authorization"
+  spec, which exercises this against the real REST API, not RLS in
+  isolation).
+- Internal-only fields (`internal_notes`, NFC fields, raw database `id`s) are
+  never selected by the public data-access layer (`src/lib/data/public.ts`)
+  in the first place — not filtered out after the fact.
+- Every other table/bucket operation requires `public.is_admin()`, which
+  checks `profiles.role = 'admin'` for the authenticated user — this is the
+  actual authorization boundary (`requireAdmin()`'s redirect is a UX nicety
+  on top of it, per `AGENTS.md`'s DAL pattern note).
+- The service-role key is never read outside test files
+  (`src/lib/env.ts` only validates the two `NEXT_PUBLIC_*` vars) and is
+  never set in Vercel — see the env var table above.
 
 ## Deployment
 
-TODO — Phase 10. App deploys to Vercel; database/auth stay on Supabase. Production
-env vars mirror the table above, pointed at the production Supabase project.
+Deployed to Vercel from `projects/xcviii-digital-archive/` (this
+subdirectory is the Vercel project root — no monorepo "Root Directory"
+dashboard setting needed, since `vercel` commands are run from inside it,
+not the monorepo root). Production env vars are the same two
+`NEXT_PUBLIC_*` values from the table above, pointed at the same Supabase
+project used in development (see "Production readiness" above) —
+`SUPABASE_SERVICE_ROLE_KEY` is deliberately never added to Vercel.
+
+```bash
+cd projects/xcviii-digital-archive
+npx vercel login      # one-time; opens a browser to authenticate
+npx vercel link       # creates/links the Vercel project to this directory
+npx vercel env add NEXT_PUBLIC_SUPABASE_URL production
+npx vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
+npx vercel --prod
+```
+
+Production URL: https://xcviii-digital-archive.vercel.app (Vercel project
+`ukiel100-6646s-projects/xcviii-digital-archive`). Verified live: admin login,
+creating/publishing a piece and collection, their public pages, an invalid
+slug's not-found page, and `/privacy` all work correctly against production.
+
+### Physical NFC checklist (manual, post-deploy)
+
+The web app doesn't write to NFC hardware itself (PRD §15) — after deploying:
+
+1. Open a published piece's admin detail page, copy its permanent public URL.
+2. Write that URL to a physical NFC tag with an external NFC-writing app.
+3. Tap the tag with both an iPhone and an Android phone and confirm each
+   opens the correct public piece page.
+4. Only then sew the tag into the physical hat label (PRD §15's "test before
+   sewing permanently").
+5. Update the piece's NFC status (`Programmed` → `Tested`) and last-tested
+   date on the same admin page.
 
 ## NFC programming instructions
 
@@ -146,8 +232,9 @@ Write only the piece's permanent public URL to the tag — nothing else. Find it
 on the piece's admin detail page (`/admin/pieces/[id]`), under "NFC": it's
 shown as plain text with a Copy URL button next to it. The URL is derived from
 whatever origin serves the request (see `src/lib/site.ts`) plus the piece's
-slug, e.g. `https://xcviii.studio/pieces/pearl-halo-001` once deployed.
-Editing a piece's data never requires reprogramming the tag — the slug is
+slug — currently `https://xcviii-digital-archive.vercel.app/pieces/<slug>`
+(see "Deployment" above; a custom domain would change only the origin, not
+this mechanism). Editing a piece's data never requires reprogramming the tag — the slug is
 permanent once published (PRD §8.5). Record the NFC status (`Not assigned` →
 `Ready to program` → `Programmed` → `Tested` → `Replaced`) and last-tested date
 on the same admin page as each physical tag is programmed and tested.
@@ -186,7 +273,9 @@ reads bypass RLS entirely via the bucket's public URL endpoint).
 
 ## Known limitations
 
-- Deployment is pending (Phase 10).
+- Physical NFC hardware testing (writing a real tag, tapping it with an
+  iPhone and Android phone) can't be done by an agent — see the "Physical NFC
+  checklist" under "Deployment" for the one remaining manual step.
 - Scan tracking has no active deduplication or rate-limiting — each page load
   records a scan event (PRD §8.10 explicitly doesn't require exact unique-user
   measurement). The stored `anonymous_identifier` (a daily-rotating hash, not

@@ -206,6 +206,48 @@ matches this phase's "structural only" scope and avoids configuring
 project moves into actual visual design (see README's "Image uploads"
 section).
 
+## Testing and deployment (Phase 10+)
+
+`e2e/` (Playwright, PRD §19's 4 required flows) follows the same throwaway-
+admin/service-role pattern as the Vitest integration tests
+(`e2e/fixtures.ts` mirrors `collections.integration.test.ts`), adapted to
+Playwright's `globalSetup`/`globalTeardown`: setup creates one admin and
+writes its credentials to `e2e/.auth/admin.json` (gitignored) for specs to
+sign in through the real login form; teardown deletes it and every
+`collection_code` starting with `E2E`.
+
+**Fixture cleanup for a piece that's actually been published must delete
+`scan_events` before `pieces` before `collections`, and must check delete
+errors.** E2E specs visit real public piece pages, which fires `ScanBeacon`
+for real — deleting a piece with a `scan_events` row still pointing at it
+hits `scan_events_piece_id_fkey` and fails. Skipped in every table-cleanup
+helper before this phase because no earlier fixture ever visited a piece's
+public page. Not a hypothetical: this exact bug is why a Phase 9 manual-
+verification piece was found still in the database during Phase 10's mobile
+QA pass, well after its cleanup script had reported success — that script
+deleted in the wrong order, silently failed on the FK constraint, and never
+checked the delete calls' errors. `e2e/fixtures.ts`'s `cleanupFixtures()` is
+the corrected reference implementation; anything that seeds a _published_
+piece should follow its order, not the pre-Phase-10 Vitest fixtures (which
+never published anything and so never hit this).
+
+Admin list tables (`src/app/admin/pieces/page.tsx`,
+`src/app/admin/collections/page.tsx`) are wrapped in
+`<div className="overflow-x-auto">` — confirmed via the Browser pane at a
+375px viewport that the unwrapped pieces table (10 columns, PRD §8.8) blows
+out the whole page horizontally, not just the table, on a real phone width.
+The only Tailwind classes anywhere in `src/app` outside `layout.tsx` — every
+other page is still zero-class plain HTML, so don't read this as a green
+light for broader styling; it's a scoped fix for one real PRD §16
+responsiveness requirement, not the start of a design pass.
+
+Deployed via the Vercel CLI run from `projects/xcviii-digital-archive/`
+(not the monorepo root) — that makes this subdirectory the Vercel project
+root with no "Root Directory" dashboard setting needed. Production reuses
+the same Supabase project as development (see README's "Production
+readiness" section for the full RLS/policy review this phase did before
+calling it production-ready).
+
 ## Next.js version note
 
 This project scaffolded on Next.js 16 / React 19, whose own generated `AGENTS.md`
@@ -234,4 +276,5 @@ before assuming App Router conventions from training data still hold.
 PRD §20 lays out 10 phases: project setup → DB + RLS → auth → collections →
 pieces → public archive → NFC workflow → scan tracking → images → testing/deploy.
 Follow that order; each phase should pass typecheck/lint/tests before the next starts.
-Phases 1-9 are done; only testing/deploy (Phase 10) remains.
+All 10 phases are done — see README's "Status" line and "Known limitations"
+for the one remaining manual step (physical NFC hardware testing).

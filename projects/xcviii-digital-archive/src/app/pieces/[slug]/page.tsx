@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ScanBeacon } from "@/app/pieces/[slug]/ScanBeacon";
@@ -170,6 +171,10 @@ export default async function PiecePage({
         <h3>Piece status</h3>
         <p>{titleCase(piece.piece_status)}</p>
       </section>
+
+      <p>
+        <Link href="/privacy">Privacy</Link>
+      </p>
     </main>
   );
 }
