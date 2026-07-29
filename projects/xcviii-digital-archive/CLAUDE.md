@@ -152,6 +152,60 @@ every other `src/lib/data/` file (unlike `public.ts`). Its aggregation logic
 the service-role client directly — the functions themselves can't run in
 Vitest (same `requireAdmin()`/`next/headers` limitation as Server Actions).
 
+## Images (Phase 9+)
+
+`main_image_url`/`cover_image_url` are no longer text fields in
+`pieceSchema`/`collectionSchema` — the admin forms take a file input
+(`main_image_file`/`cover_image_file`) plus a "remove current image"
+checkbox instead of a hand-typed URL. `src/lib/storage/images.ts` is the one
+new module this phase adds, and it deliberately doesn't follow the
+`requireAdmin()`-gated `src/lib/data/` pattern: it takes an
+already-constructed `SupabaseClient` as a parameter rather than building one
+from `next/headers` itself, so it carries no `"server-only"` tag and its pure
+path-building functions (`buildImagePath`, `extractImagePath`) are directly
+unit-testable — same reasoning as `src/lib/pieces/identifiers.ts`.
+
+`resolveImageUpdate()` is shared by all four of `createPiece`/`updatePiece`/
+`createCollection`/`updateCollection` (`src/lib/actions/`): it validates and
+uploads a new file eagerly (a live URL is needed immediately to store on the
+row), but returns a `commit()` closure for deleting the image the change
+replaces or clears — callers only invoke `commit()` after their own DB write
+succeeds, so a failed mutation never deletes an image a still-valid row
+points at. A create that exhausts `createPiece`'s piece-ID/slug retry loop
+without ever succeeding leaves that one upload orphaned rather than rolling
+it back — accepted as a rare-edge-case simplification, not fixed.
+
+Storage lives in one public bucket, `images`
+(`supabase/migrations/20260729023804_image_storage.sql`), holding both piece
+and collection images under path prefixes (`pieces/<uuid>.<ext>` /
+`collections/<uuid>.<ext>`) rather than two buckets, since both need
+identical policies. **A public bucket's `public = true` flag only bypasses
+RLS for the unauthenticated public-URL read path** — an authenticated
+client's own `list()`/`remove()` calls (what `deleteImageByUrl()` uses) still
+go through ordinary RLS on `storage.objects` and need their own SELECT
+policy, or they silently see zero rows: `remove()` then resolves with
+`error: null` having deleted nothing. Missed on the first pass
+(`20260729023804`'s comment wrongly claimed no SELECT policy was needed at
+all) and only caught by manual verification actually fetching the "deleted"
+image's public URL afterward and finding it still served — the follow-up
+migration `20260729025621_image_storage_admin_select.sql` adds it, and
+`src/lib/storage/__tests__/images.integration.test.ts`'s delete assertions
+now check real post-delete state (a `list()`/fetch) instead of trusting
+`error === null`, which the anonymous-delete test already had to do for the
+same reason. Same trap for any future test of a storage RLS policy.
+
+Format/size validation (`src/lib/validation/images.ts`: JPEG/PNG/WebP, 5 MB
+cap) is a plain function, not a Zod field — `parsePieceForm`/
+`parseCollectionForm` build their schema input from string `FormData.get()`
+values, and a `File` doesn't fit that shape. The same limits are set on the
+bucket itself (`file_size_limit`/`allowed_mime_types`) as a second layer.
+
+Public pages render the image with a plain `<img>`, not `next/image` —
+matches this phase's "structural only" scope and avoids configuring
+`images.remotePatterns` for the Supabase storage host; revisit once the
+project moves into actual visual design (see README's "Image uploads"
+section).
+
 ## Next.js version note
 
 This project scaffolded on Next.js 16 / React 19, whose own generated `AGENTS.md`
@@ -180,3 +234,4 @@ before assuming App Router conventions from training data still hold.
 PRD §20 lays out 10 phases: project setup → DB + RLS → auth → collections →
 pieces → public archive → NFC workflow → scan tracking → images → testing/deploy.
 Follow that order; each phase should pass typecheck/lint/tests before the next starts.
+Phases 1-9 are done; only testing/deploy (Phase 10) remains.

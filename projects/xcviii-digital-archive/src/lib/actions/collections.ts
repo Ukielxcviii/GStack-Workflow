@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/dal";
+import { resolveImageUpdate } from "@/lib/storage/images";
 import { collectionSchema } from "@/lib/validation/collections";
 
 export type CollectionFormState =
@@ -18,7 +19,6 @@ function parseCollectionForm(formData: FormData) {
     short_description: formData.get("short_description"),
     story: formData.get("story"),
     release_date: formData.get("release_date"),
-    cover_image_url: formData.get("cover_image_url"),
     planned_piece_total: formData.get("planned_piece_total"),
     internal_notes: formData.get("internal_notes"),
   });
@@ -26,6 +26,12 @@ function parseCollectionForm(formData: FormData) {
 
 function toNullable(value: string | undefined | null) {
   return value && value.length > 0 ? value : null;
+}
+
+/** An unused <input type="file"> submits a zero-byte File, not null. */
+function getCoverImageFile(formData: FormData): File | null {
+  const value = formData.get("cover_image_file");
+  return value instanceof File && value.size > 0 ? value : null;
 }
 
 /** Maps a unique-violation's constraint name to the form field it belongs to. */
@@ -53,6 +59,20 @@ export async function createCollection(
   }
 
   const { data } = parsed;
+
+  const imageUpdate = await resolveImageUpdate(supabase, {
+    prefix: "collections",
+    file: getCoverImageFile(formData),
+    remove: false,
+    currentUrl: null,
+  });
+  if (!imageUpdate.ok) {
+    return {
+      error: "Check the highlighted fields.",
+      fieldErrors: { cover_image_file: [imageUpdate.error] },
+    };
+  }
+
   const { error } = await supabase.from("collections").insert({
     name: data.name,
     slug: data.slug,
@@ -60,7 +80,9 @@ export async function createCollection(
     short_description: toNullable(data.short_description),
     story: toNullable(data.story),
     release_date: toNullable(data.release_date),
-    cover_image_url: toNullable(data.cover_image_url),
+    ...(imageUpdate.url !== undefined
+      ? { cover_image_url: imageUpdate.url }
+      : {}),
     planned_piece_total: data.planned_piece_total ?? null,
     internal_notes: toNullable(data.internal_notes),
   });
@@ -98,6 +120,28 @@ export async function updateCollection(
   }
 
   const { data } = parsed;
+
+  const { data: existing } = await supabase
+    .from("collections")
+    .select("cover_image_url")
+    .eq("id", id)
+    .single();
+
+  if (!existing) return { error: "That collection no longer exists." };
+
+  const imageUpdate = await resolveImageUpdate(supabase, {
+    prefix: "collections",
+    file: getCoverImageFile(formData),
+    remove: formData.get("remove_cover_image") === "on",
+    currentUrl: existing.cover_image_url,
+  });
+  if (!imageUpdate.ok) {
+    return {
+      error: "Check the highlighted fields.",
+      fieldErrors: { cover_image_file: [imageUpdate.error] },
+    };
+  }
+
   const { error } = await supabase
     .from("collections")
     .update({
@@ -107,7 +151,9 @@ export async function updateCollection(
       short_description: toNullable(data.short_description),
       story: toNullable(data.story),
       release_date: toNullable(data.release_date),
-      cover_image_url: toNullable(data.cover_image_url),
+      ...(imageUpdate.url !== undefined
+        ? { cover_image_url: imageUpdate.url }
+        : {}),
       planned_piece_total: data.planned_piece_total ?? null,
       internal_notes: toNullable(data.internal_notes),
     })
@@ -125,6 +171,10 @@ export async function updateCollection(
     }
     return { error: "Something went wrong updating the collection." };
   }
+
+  // Only delete the image the update just made obsolete once the update
+  // itself has actually succeeded — see resolveImageUpdate's commit() note.
+  await imageUpdate.commit();
 
   revalidatePath("/admin/collections");
   redirect("/admin/collections");

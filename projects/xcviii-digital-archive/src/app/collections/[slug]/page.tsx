@@ -45,6 +45,13 @@ export default async function CollectionPage({
     <main>
       <h1>{collection.name}</h1>
 
+      {collection.cover_image_url && (
+        // Plain <img>, matching this phase's "structural only" scope (see
+        // AGENTS.md's Phase 9 note on next/image).
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={collection.cover_image_url} alt={collection.name} />
+      )}
+
       {collection.release_date && <p>Released {collection.release_date}</p>}
 
       {collection.story && <p>{collection.story}</p>}

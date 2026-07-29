@@ -9,6 +9,7 @@ import {
   buildSlug,
   nextCandidate,
 } from "@/lib/pieces/identifiers";
+import { resolveImageUpdate } from "@/lib/storage/images";
 import type { Database } from "@/lib/supabase/database.types";
 import { pieceSchema, type PieceInput } from "@/lib/validation/pieces";
 
@@ -47,7 +48,6 @@ function parsePieceForm(formData: FormData) {
     completion_date: value("completion_date"),
     public_description: value("public_description"),
     care_instructions: value("care_instructions"),
-    main_image_url: value("main_image_url"),
     authenticity_status: value("authenticity_status"),
     piece_status: value("piece_status"),
     nfc_status: value("nfc_status"),
@@ -60,7 +60,15 @@ function toNullable(value: string | undefined | null) {
   return value && value.length > 0 ? value : null;
 }
 
-function toRow(data: PieceInput): Omit<PieceRow, "piece_id" | "slug"> {
+/** An unused <input type="file"> submits a zero-byte File, not null. */
+function getMainImageFile(formData: FormData): File | null {
+  const value = formData.get("main_image_file");
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+function toRow(
+  data: PieceInput,
+): Omit<PieceRow, "piece_id" | "slug" | "main_image_url"> {
   return {
     name: data.name,
     collection_id: data.collection_id,
@@ -80,7 +88,6 @@ function toRow(data: PieceInput): Omit<PieceRow, "piece_id" | "slug"> {
     completion_date: toNullable(data.completion_date),
     public_description: toNullable(data.public_description),
     care_instructions: toNullable(data.care_instructions),
-    main_image_url: toNullable(data.main_image_url),
     authenticity_status: data.authenticity_status,
     piece_status: data.piece_status,
     nfc_status: data.nfc_status,
@@ -125,6 +132,19 @@ export async function createPiece(
   }
   const { data } = parsed;
 
+  const imageUpdate = await resolveImageUpdate(supabase, {
+    prefix: "pieces",
+    file: getMainImageFile(formData),
+    remove: false,
+    currentUrl: null,
+  });
+  if (!imageUpdate.ok) {
+    return {
+      error: "Check the highlighted fields.",
+      fieldErrors: { main_image_file: [imageUpdate.error] },
+    };
+  }
+
   const { data: collection } = await supabase
     .from("collections")
     .select("slug, collection_code")
@@ -138,7 +158,12 @@ export async function createPiece(
     };
   }
 
-  const row = toRow(data);
+  const row = {
+    ...toRow(data),
+    ...(imageUpdate.url !== undefined
+      ? { main_image_url: imageUpdate.url }
+      : {}),
+  };
   let pieceId = buildPieceId({
     collectionCode: collection.collection_code,
     editionNumber: data.edition_number,
@@ -199,7 +224,7 @@ export async function updatePiece(
 
   const { data: existing } = await supabase
     .from("pieces")
-    .select("slug, first_published_at")
+    .select("slug, first_published_at, main_image_url")
     .eq("id", id)
     .single();
 
@@ -222,10 +247,26 @@ export async function updatePiece(
     }
   }
 
+  const imageUpdate = await resolveImageUpdate(supabase, {
+    prefix: "pieces",
+    file: getMainImageFile(formData),
+    remove: formData.get("remove_main_image") === "on",
+    currentUrl: existing.main_image_url,
+  });
+  if (!imageUpdate.ok) {
+    return {
+      error: "Check the highlighted fields.",
+      fieldErrors: { main_image_file: [imageUpdate.error] },
+    };
+  }
+
   const row = {
     ...toRow(data),
     ...(!existing.first_published_at && requestedSlug
       ? { slug: requestedSlug }
+      : {}),
+    ...(imageUpdate.url !== undefined
+      ? { main_image_url: imageUpdate.url }
       : {}),
   };
 
@@ -244,6 +285,10 @@ export async function updatePiece(
     }
     return { error: "Something went wrong updating the piece." };
   }
+
+  // Only delete the image the update just made obsolete once the update
+  // itself has actually succeeded — see resolveImageUpdate's commit() note.
+  await imageUpdate.commit();
 
   revalidatePath("/admin/pieces");
   revalidatePath(`/admin/pieces/${id}`);

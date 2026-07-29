@@ -308,15 +308,32 @@ export function PieceForm({
         </div>
 
         <div>
-          <label htmlFor="main_image_url">Main image URL</label>
+          <label htmlFor="main_image_file">Main image</label>
+          {defaultValues?.main_image_url && (
+            // Plain <img>, matching this phase's "structural only" scope
+            // (see AGENTS.md's Phase 9 note on next/image).
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={defaultValues.main_image_url}
+              alt=""
+              width={120}
+              height={120}
+            />
+          )}
           <input
-            id="main_image_url"
-            name="main_image_url"
-            type="url"
-            defaultValue={defaultValues?.main_image_url ?? undefined}
+            id="main_image_file"
+            name="main_image_file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
           />
-          {fieldError("main_image_url") && (
-            <p role="alert">{fieldError("main_image_url")}</p>
+          {fieldError("main_image_file") && (
+            <p role="alert">{fieldError("main_image_file")}</p>
+          )}
+          {defaultValues?.main_image_url && (
+            <label>
+              <input type="checkbox" name="remove_main_image" />
+              Remove current image
+            </label>
           )}
         </div>
       </fieldset>

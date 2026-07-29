@@ -72,6 +72,12 @@ export default async function PiecePage({
       <section>
         <h2>{piece.name}</h2>
         <p>{piece.piece_id}</p>
+        {piece.main_image_url && (
+          // Plain <img>, matching this phase's "structural only" scope
+          // (see AGENTS.md's Phase 9 note on next/image).
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={piece.main_image_url} alt={piece.name} />
+        )}
       </section>
 
       <section>

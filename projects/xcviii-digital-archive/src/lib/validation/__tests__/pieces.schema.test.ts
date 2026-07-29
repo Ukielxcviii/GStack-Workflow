@@ -67,11 +67,6 @@ describe("pieceSchema", () => {
     }
   });
 
-  it("rejects an invalid image URL but allows a blank one", () => {
-    expect(parse({ main_image_url: "not-a-url" }).success).toBe(false);
-    expect(parse({ main_image_url: "" }).success).toBe(true);
-  });
-
   it("rejects invalid status values", () => {
     expect(parse({ product_tier: "sombrero" }).success).toBe(false);
     expect(parse({ authenticity_status: "probably" }).success).toBe(false);

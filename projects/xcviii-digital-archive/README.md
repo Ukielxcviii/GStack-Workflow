@@ -7,8 +7,8 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-8 (project setup, database + RLS, authentication, collection
-and piece management, public archive, NFC workflow, scan tracking). Admins can
+**Status:** Phases 1-9 (project setup, database + RLS, authentication, collection
+and piece management, public archive, NFC workflow, scan tracking, images). Admins can
 create, edit, publish/unpublish, and archive both collections and pieces, with
 generated permanent piece IDs/slugs and search/filtering. `/pieces/[slug]` and
 `/collections/[slug]` are real, unauthenticated public pages backed by RLS. The
@@ -16,7 +16,8 @@ admin piece detail page shows the piece's permanent public URL with a copy
 button — that's the exact string to write to its NFC tag. Every visit to a
 published piece's public page records a scan event; admins see totals and
 recent activity on the dashboard, the piece detail screen, and `/admin/scans`.
-Image uploads and deployment are still ahead.
+Admins can upload a piece's main image and a collection's cover image
+(Supabase Storage); both render on the public pages. Deployment is still ahead.
 
 ## Technical stack
 
@@ -151,11 +152,41 @@ permanent once published (PRD §8.5). Record the NFC status (`Not assigned` →
 `Ready to program` → `Programmed` → `Tested` → `Replaced`) and last-tested date
 on the same admin page as each physical tag is programmed and tested.
 
+## Image uploads
+
+PRD §14. One public Supabase Storage bucket, `images`, holds both piece main
+images (`pieces/<uuid>.<ext>`) and collection cover images
+(`collections/<uuid>.<ext>`) — created by
+`supabase/migrations/20260729023804_image_storage.sql`, with the admin-only
+write policies completed by `20260729025621_image_storage_admin_select.sql`
+(see that migration's comment for why the SELECT policy is required, not
+optional — admins' own `list()`/`remove()` calls need it even though public
+reads bypass RLS entirely via the bucket's public URL endpoint).
+
+- Allowed formats: JPEG, PNG, WebP. Max size: 5 MB. Enforced both at the
+  bucket level (`file_size_limit`/`allowed_mime_types` on the bucket itself)
+  and in the app (`src/lib/validation/images.ts`), so a rejected upload
+  surfaces as a normal field error rather than a raw storage-API failure.
+- The piece/collection forms take a file upload (`main_image_file`/
+  `cover_image_file`) instead of a raw URL, plus a "remove current image"
+  checkbox once an image exists. `src/lib/storage/images.ts`'s
+  `resolveImageUpdate()` — shared by both create/update Server Actions —
+  uploads the new file (if any), and only deletes the image it replaces
+  _after_ the piece/collection row's own DB write has succeeded, so a failed
+  mutation never orphans the still-referenced image.
+- A create that uploads a file but then fails all `MAX_IDENTIFIER_ATTEMPTS`
+  piece-ID/slug retries leaves that one upload orphaned in storage rather than
+  rolling it back — accepted as a rare edge case, not worth the extra
+  complexity for v1.
+- Public pages (`/pieces/[slug]`, `/collections/[slug]`) render the image with
+  a plain `<img>`, not `next/image` — deliberate, matching this phase's
+  "structural only, no visual polish" scope. `next/image` would need
+  `images.remotePatterns` configured for the Supabase storage host; revisit
+  when the project moves into actual visual design.
+
 ## Known limitations
 
-- Through Phase 8: schema, RLS, auth, collection + piece management, the
-  public archive, the NFC URL section, and scan tracking all exist. Image
-  uploads (Supabase Storage) and deployment are pending (Phases 9-10).
+- Deployment is pending (Phase 10).
 - Scan tracking has no active deduplication or rate-limiting — each page load
   records a scan event (PRD §8.10 explicitly doesn't require exact unique-user
   measurement). The stored `anonymous_identifier` (a daily-rotating hash, not

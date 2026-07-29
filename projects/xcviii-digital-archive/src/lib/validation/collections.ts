@@ -20,7 +20,9 @@ export const collectionSchema = z.object({
   short_description: z.string().trim().optional().or(z.literal("")),
   story: z.string().trim().optional().or(z.literal("")),
   release_date: z.string().trim().optional().or(z.literal("")),
-  cover_image_url: z.url().optional().or(z.literal("")),
+  // cover_image_url is no longer a text field — it's derived from
+  // cover_image_file/remove_cover_image in src/lib/actions/collections.ts
+  // (Phase 9, PRD §14).
   planned_piece_total: z.preprocess(
     (val) => (val === "" || val == null ? undefined : val),
     z.coerce.number().int().nonnegative("Must be zero or greater").optional(),

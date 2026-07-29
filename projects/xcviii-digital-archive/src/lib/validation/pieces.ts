@@ -88,7 +88,9 @@ export const pieceSchema = z
     completion_date: optionalText,
     public_description: optionalText,
     care_instructions: optionalText,
-    main_image_url: z.url("Enter a valid URL").optional().or(z.literal("")),
+    // main_image_url is no longer a text field — it's derived from
+    // main_image_file/remove_main_image in src/lib/actions/pieces.ts and
+    // uploaded through src/lib/storage/images.ts (Phase 9, PRD §14).
 
     authenticity_status: z.enum(AUTHENTICITY_STATUSES),
     piece_status: z.enum(PIECE_STATUSES),

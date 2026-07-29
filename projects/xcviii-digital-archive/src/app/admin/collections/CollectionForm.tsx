@@ -101,15 +101,32 @@ export function CollectionForm({
         </div>
 
         <div>
-          <label htmlFor="cover_image_url">Cover image URL</label>
+          <label htmlFor="cover_image_file">Cover image</label>
+          {defaultValues?.cover_image_url && (
+            // Plain <img>, matching this phase's "structural only" scope
+            // (see AGENTS.md's Phase 9 note on next/image).
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={defaultValues.cover_image_url}
+              alt=""
+              width={120}
+              height={120}
+            />
+          )}
           <input
-            id="cover_image_url"
-            name="cover_image_url"
-            type="url"
-            defaultValue={defaultValues?.cover_image_url ?? undefined}
+            id="cover_image_file"
+            name="cover_image_file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
           />
-          {fieldError("cover_image_url") && (
-            <p role="alert">{fieldError("cover_image_url")}</p>
+          {fieldError("cover_image_file") && (
+            <p role="alert">{fieldError("cover_image_file")}</p>
+          )}
+          {defaultValues?.cover_image_url && (
+            <label>
+              <input type="checkbox" name="remove_cover_image" />
+              Remove current image
+            </label>
           )}
         </div>
 
