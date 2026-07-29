@@ -34,9 +34,11 @@ npm run test              # Vitest
 ```
 
 `npm run test` covers anon/public + admin-authenticated RLS (`src/lib/supabase/
-__tests__/`) and the login Zod schema (`src/lib/validation/__tests__/`), run
-against the real linked dev project. `npm run test:e2e` (Playwright — the full
-signed-in browser flow) waits for a stable UI (Phase 10).
+__tests__/`, `src/lib/data/__tests__/`), the login/collection/piece Zod schemas
+(`src/lib/validation/__tests__/`), and piece ID/slug generation
+(`src/lib/pieces/__tests__/`), run against the real linked dev project.
+`npm run test:e2e` (Playwright — the full signed-in browser flow) waits for a
+stable UI (Phase 10).
 
 ## Auth pattern (Phase 3)
 
@@ -49,19 +51,35 @@ authorization solution." RLS's `is_admin()` is the backstop under both.
 ## Data-access pattern (Phase 4+)
 
 Every table's admin CRUD follows the same shape, set by collections
-(`src/lib/data/collections.ts`, `src/lib/actions/collections.ts`) — reuse it for
-pieces (Phase 5) rather than inventing a new one:
+(`src/lib/data/collections.ts`, `src/lib/actions/collections.ts`) and reused by
+pieces (`src/lib/data/pieces.ts`, `src/lib/actions/pieces.ts`) — follow it for
+scans (Phase 8) too, rather than inventing a new one:
 
 - `src/lib/validation/<table>.ts` — Zod schema matching the DB constraints.
 - `src/lib/data/<table>.ts` — read functions, each calling `requireAdmin()`
   first, plain async functions (not Server Actions).
 - `src/lib/actions/<table>.ts` — `"use server"` mutations, each calling
   `requireAdmin()` first; unique-constraint violations (Postgres `23505`)
-  surface as a field-level form error, not a crash.
+  surface as a field-level form error, not a crash. **Verify actual constraint
+  names against the live DB** (e.g. via a throwaway insert) rather than
+  guessing from the migration SQL — Phase 5 found Phase 4's guessed names were
+  right, but only by checking.
 - Supabase types come from `src/lib/supabase/database.types.ts` (regenerate
   after schema changes — see README's "Database migrations" section) — avoid
   manual type annotations/casts on query results; let the generated types flow
-  through instead.
+  through instead. Use `Database["public"]["Tables"]["<table>"]["Insert"]` /
+  `["Update"]` for row-shaping helper functions, not a hand-written type.
+- `"use server"` files may only export async functions — a Zod schema or other
+  const needs its own module (see `src/lib/validation/pieces.ts` vs
+  `src/lib/actions/pieces.ts`).
+- A disabled `<input>` is omitted from `FormData` entirely (`.get()` returns
+  `null`, not `""`) — normalize in the form-parsing helper, not the schema, or
+  a legitimately-disabled optional field (e.g. a frozen slug) fails validation.
+- Generated identifiers that might collide with a hand-edited value (e.g. a
+  piece's slug, editable before publication) use generate → attempt insert →
+  catch `23505` → retry with the next candidate, bounded — see
+  `src/lib/pieces/identifiers.ts`'s `nextCandidate()` and its use in
+  `createPiece()`.
 
 ## Next.js version note
 

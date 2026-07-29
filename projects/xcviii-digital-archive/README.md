@@ -7,10 +7,11 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-4 (project setup, database + RLS, authentication, collection
-management). Admins can create, edit, publish/unpublish, and archive collections.
-Pieces, the public archive, NFC workflow, and scan tracking are still ahead —
-those routes render placeholder content.
+**Status:** Phases 1-5 (project setup, database + RLS, authentication, collection
+and piece management). Admins can create, edit, publish/unpublish, and archive
+both collections and pieces, with generated permanent piece IDs/slugs and
+search/filtering. The public archive, NFC workflow, and scan tracking are still
+ahead — those routes render placeholder content.
 
 ## Technical stack
 
@@ -100,8 +101,9 @@ To get a dev admin:
    ```
 3. `supabase db push`.
 
-PRD §21's sample collection ("First Light") + piece ("Pearl Halo — Navy") are
-seeded once the admin CRUD UI exists (Phase 4/5), not at the schema stage.
+PRD §21's sample collection ("First Light") + piece ("Pearl Halo — Navy") can now
+be entered through the admin UI (`/admin/collections/new`, `/admin/pieces/new`)
+rather than a migration, now that both exist (Phases 4-5).
 
 ## Development commands
 
@@ -140,10 +142,13 @@ requires reprogramming the tag.
 
 ## Known limitations
 
-- Through Phase 4: schema, RLS, auth, and collection management exist. Pieces
-  (Phase 5) don't exist yet, so collection piece counts are always 0 and
-  `/admin/pieces*` still render placeholder text. Public `/pieces/[slug]` and
-  `/collections/[slug]` are still static placeholders.
+- Through Phase 5: schema, RLS, auth, and full collection + piece management
+  exist. Public `/pieces/[slug]` and `/collections/[slug]` are still static
+  placeholders (Phase 6); NFC URL section and scan summary on the piece detail
+  screen are pending (Phases 7-8).
+- Piece ID year: the PRD's `XCVIII-[CODE]-[YEAR]-[NUMBER]` format doesn't specify
+  which year — this app uses the year the record is _created_, not completion
+  date or collection release date.
 - Ordinary NFC tags confirm the tag was programmed with the correct URL but do not
   provide strong counterfeit protection (basic NFC URLs can be copied) — the public
   page is labeled a "Registered Piece" / "XCVIII Studio Record," not proof of

@@ -113,7 +113,7 @@ beforeAll(async () => {
       collection_id: publishedCollectionId,
       product_tier: "other",
       edition_number: 2,
-      edition_total: 1,
+      edition_total: 2,
       publication_status: "draft",
     })
     .select("id")
@@ -178,8 +178,10 @@ describe("pieces RLS", () => {
       slug: `${TEST_MARKER}-anon-insert-piece`,
       collection_id: publishedCollectionId,
       product_tier: "other",
+      // Deliberately valid edition values — this test isolates RLS, not the
+      // edition_number <= edition_total CHECK constraint.
       edition_number: 99,
-      edition_total: 1,
+      edition_total: 100,
     });
     expect(error).not.toBeNull();
     expect(error?.code).toBe("42501");
