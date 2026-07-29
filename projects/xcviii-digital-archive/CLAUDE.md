@@ -81,6 +81,36 @@ scans (Phase 8) too, rather than inventing a new one:
   `src/lib/pieces/identifiers.ts`'s `nextCandidate()` and its use in
   `createPiece()`.
 
+## Public data-access pattern (Phase 6+)
+
+`src/lib/data/public.ts` is intentionally different from every other file in
+`src/lib/data/`: its functions do **not** call `requireAdmin()`. They run under
+the plain `createClient()` client, so Row Level Security — not the DAL — decides
+what's visible. Follow this shape for any future public route, not the admin
+`requireAdmin()`-gated pattern above:
+
+- Select only public-safe columns. Never `id` (PRD §8.6 "avoid exposing raw
+  database IDs") or `internal_notes`/NFC fields.
+- A missing row is an expected outcome (`.maybeSingle()`, not `.single()`),
+  handled by the page calling `notFound()` — not an error to throw.
+- **Embedding a child table does not re-narrow it beyond that child's own RLS
+  policy.** `getPublicCollectionBySlug()` embeds `pieces(...)`, but once the
+  pieces RLS policy also admits previously-published-then-unpublished/archived
+  rows (see below), the embed will include those too — filter the array in
+  application code afterward if the caller needs a stricter set than RLS
+  allows. Don't reach for `!inner` + `.eq("child.column", ...)` to do this
+  instead: it turns the join into an inner join, so a parent row with zero
+  matching children (e.g. a freshly published collection with no published
+  pieces yet) silently disappears from the result instead of returning with an
+  empty list — confirmed against the live DB while building this, not assumed.
+- **The pieces RLS policy is intentionally broader than "published only."**
+  `supabase/migrations/20260729002744_piece_public_visibility.sql` admits
+  `publication_status = 'published' OR first_published_at is not null`, so a
+  physical NFC tag that already points at a since-unpublished-or-archived slug
+  still resolves (PRD §8.6's "unavailable" state) instead of a bare not-found.
+  The page itself still checks `publication_status` and must never render full
+  piece data for a non-published row that RLS lets through.
+
 ## Next.js version note
 
 This project scaffolded on Next.js 16 / React 19, whose own generated `AGENTS.md`

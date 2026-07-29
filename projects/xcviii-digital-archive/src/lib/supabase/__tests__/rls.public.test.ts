@@ -186,6 +186,60 @@ describe("pieces RLS", () => {
     expect(error).not.toBeNull();
     expect(error?.code).toBe("42501");
   });
+
+  // Phase 6: the "public reads published pieces" policy was widened so a
+  // piece that has ever been published stays readable even after being
+  // unpublished/archived (PRD §8.6's "unavailable" state needs to tell it
+  // apart from a slug that was never public — see the Phase 6 plan).
+  it("anon can read an archived piece that was once published", async () => {
+    const { data: archived, error: setupError } = await admin
+      .from("pieces")
+      .insert({
+        piece_id: `${TEST_MARKER}-archived-once-public`,
+        name: "RLS Test Archived Once-Public Piece",
+        slug: `${TEST_MARKER}-archived-once-public`,
+        collection_id: publishedCollectionId,
+        product_tier: "other",
+        edition_number: 3,
+        edition_total: 3,
+        publication_status: "archived",
+        first_published_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+    expect(setupError).toBeNull();
+
+    const { data } = await anon
+      .from("pieces")
+      .select("id")
+      .eq("id", archived!.id);
+    expect(data).toHaveLength(1);
+  });
+
+  it("anon cannot read an archived piece that was never published", async () => {
+    const { data: neverPublished, error: setupError } = await admin
+      .from("pieces")
+      .insert({
+        piece_id: `${TEST_MARKER}-archived-never-public`,
+        name: "RLS Test Archived Never-Public Piece",
+        slug: `${TEST_MARKER}-archived-never-public`,
+        collection_id: publishedCollectionId,
+        product_tier: "other",
+        edition_number: 4,
+        edition_total: 4,
+        publication_status: "archived",
+        first_published_at: null,
+      })
+      .select("id")
+      .single();
+    expect(setupError).toBeNull();
+
+    const { data } = await anon
+      .from("pieces")
+      .select("id")
+      .eq("id", neverPublished!.id);
+    expect(data).toHaveLength(0);
+  });
 });
 
 describe("scan_events RLS", () => {

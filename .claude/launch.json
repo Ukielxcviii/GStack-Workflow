@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "xcviii-digital-archive",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "projects/xcviii-digital-archive", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

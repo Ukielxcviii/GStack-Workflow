@@ -7,11 +7,12 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-5 (project setup, database + RLS, authentication, collection
-and piece management). Admins can create, edit, publish/unpublish, and archive
-both collections and pieces, with generated permanent piece IDs/slugs and
-search/filtering. The public archive, NFC workflow, and scan tracking are still
-ahead — those routes render placeholder content.
+**Status:** Phases 1-6 (project setup, database + RLS, authentication, collection
+and piece management, public archive). Admins can create, edit, publish/unpublish,
+and archive both collections and pieces, with generated permanent piece IDs/slugs
+and search/filtering. `/pieces/[slug]` and `/collections/[slug]` are real,
+unauthenticated public pages backed by RLS. The NFC workflow and scan tracking
+are still ahead.
 
 ## Technical stack
 
@@ -142,10 +143,17 @@ requires reprogramming the tag.
 
 ## Known limitations
 
-- Through Phase 5: schema, RLS, auth, and full collection + piece management
-  exist. Public `/pieces/[slug]` and `/collections/[slug]` are still static
-  placeholders (Phase 6); NFC URL section and scan summary on the piece detail
-  screen are pending (Phases 7-8).
+- Through Phase 6: schema, RLS, auth, collection + piece management, and the
+  public archive all exist. NFC URL section and scan summary on the piece
+  detail screen are pending (Phases 7-8); the public piece page does not yet
+  record a scan/page-view event (Phase 8).
+- Once a piece has ever been published, its slug stays readable to the public
+  even after being unpublished or archived — the RLS policy admits any piece
+  where `publication_status = 'published' OR first_published_at is not null`.
+  This is deliberate (a physical NFC tag may already point at that slug — see
+  the §8.5 slug-freeze rule) — the public page then renders an "unavailable"
+  message rather than the full record. A piece that has never been published
+  has no tag pointing at it, so it correctly 404s instead.
 - Piece ID year: the PRD's `XCVIII-[CODE]-[YEAR]-[NUMBER]` format doesn't specify
   which year — this app uses the year the record is _created_, not completion
   date or collection release date.
