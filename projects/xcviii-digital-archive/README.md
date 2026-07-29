@@ -7,12 +7,14 @@ the record; editing the record updates the page without ever rewriting the tag.
 
 Full spec: [docs/PRD.md](docs/PRD.md).
 
-**Status:** Phases 1-6 (project setup, database + RLS, authentication, collection
-and piece management, public archive). Admins can create, edit, publish/unpublish,
-and archive both collections and pieces, with generated permanent piece IDs/slugs
-and search/filtering. `/pieces/[slug]` and `/collections/[slug]` are real,
-unauthenticated public pages backed by RLS. The NFC workflow and scan tracking
-are still ahead.
+**Status:** Phases 1-7 (project setup, database + RLS, authentication, collection
+and piece management, public archive, NFC workflow). Admins can create, edit,
+publish/unpublish, and archive both collections and pieces, with generated
+permanent piece IDs/slugs and search/filtering. `/pieces/[slug]` and
+`/collections/[slug]` are real, unauthenticated public pages backed by RLS. The
+admin piece detail page shows the piece's permanent public URL with a copy
+button — that's the exact string to write to its NFC tag. Scan tracking is
+still ahead.
 
 ## Technical stack
 
@@ -137,15 +139,21 @@ env vars mirror the table above, pointed at the production Supabase project.
 
 ## NFC programming instructions
 
-TODO — Phase 7 (NFC workflow). The tag stores only the piece's permanent public URL
-(e.g. `https://xcviii.studio/pieces/pearl-halo-001`) — editing a piece's data never
-requires reprogramming the tag.
+Write only the piece's permanent public URL to the tag — nothing else. Find it
+on the piece's admin detail page (`/admin/pieces/[id]`), under "NFC": it's
+shown as plain text with a Copy URL button next to it. The URL is derived from
+whatever origin serves the request (see `src/lib/site.ts`) plus the piece's
+slug, e.g. `https://xcviii.studio/pieces/pearl-halo-001` once deployed.
+Editing a piece's data never requires reprogramming the tag — the slug is
+permanent once published (PRD §8.5). Record the NFC status (`Not assigned` →
+`Ready to program` → `Programmed` → `Tested` → `Replaced`) and last-tested date
+on the same admin page as each physical tag is programmed and tested.
 
 ## Known limitations
 
-- Through Phase 6: schema, RLS, auth, collection + piece management, and the
-  public archive all exist. NFC URL section and scan summary on the piece
-  detail screen are pending (Phases 7-8); the public piece page does not yet
+- Through Phase 7: schema, RLS, auth, collection + piece management, the
+  public archive, and the NFC URL section all exist. Scan summary on the piece
+  detail screen is pending (Phase 8); the public piece page does not yet
   record a scan/page-view event (Phase 8).
 - Once a piece has ever been published, its slug stays readable to the public
   even after being unpublished or archived — the RLS policy admits any piece

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CopyUrlButton } from "@/app/admin/pieces/[id]/CopyUrlButton";
 import { getPieceById } from "@/lib/data/pieces";
+import { getPublicPieceUrl } from "@/lib/site";
 
 export default async function AdminPieceDetailPage({
   params,
@@ -14,6 +16,8 @@ export default async function AdminPieceDetailPage({
   if (!piece) {
     notFound();
   }
+
+  const publicUrl = await getPublicPieceUrl(piece.slug);
 
   return (
     <main>
@@ -93,9 +97,16 @@ export default async function AdminPieceDetailPage({
       </dl>
 
       <h2>NFC</h2>
+      <p>
+        Permanent public URL: <code>{publicUrl}</code>
+      </p>
+      <CopyUrlButton url={publicUrl} />
       <p>NFC status: {piece.nfc_status}</p>
       <p>Last tested: {piece.nfc_last_tested_at ?? "not yet tested"}</p>
-      <p>NFC URL section (permanent link, copy button) arrives in Phase 7.</p>
+      <p>
+        Only write this URL to the NFC tag. Editing this piece&apos;s data will
+        never require reprogramming it.
+      </p>
 
       <h2>Scans</h2>
       <p>Scan summary arrives in Phase 8.</p>

@@ -111,6 +111,17 @@ what's visible. Follow this shape for any future public route, not the admin
   The page itself still checks `publication_status` and must never render full
   piece data for a non-published row that RLS lets through.
 
+## Permanent public URL (Phase 7+)
+
+`src/lib/site.ts`'s `getSiteOrigin()`/`getPublicPieceUrl(slug)` derive the
+site's origin from the incoming request's `host` and `x-forwarded-proto`
+headers rather than a `NEXT_PUBLIC_SITE_URL` env var — there's no such var
+(Phase 10 is the actual deploy phase), and reading it from the request is
+correct in every environment without adding required config. Only callable
+from a Server Component/Route Handler (needs `next/headers`). This is what the
+admin piece detail page's NFC section shows and the Copy URL button copies —
+the exact string an NFC tag should be programmed with.
+
 ## Next.js version note
 
 This project scaffolded on Next.js 16 / React 19, whose own generated `AGENTS.md`
